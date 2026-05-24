@@ -58,6 +58,7 @@ const FRAMEWORK_NAMES: Record<Framework, string> = {
   vite: "Vite",
   tanstack: "TanStack Start",
   webpack: "Webpack",
+  html: "Plain HTML",
   unknown: "Unknown",
 };
 
@@ -113,7 +114,10 @@ export const init = new Command()
   .option("-f, --force", "force overwrite existing config", false)
   .option("-k, --key <key>", "activation key (e.g., Meta+K, Ctrl+Shift+G, Space)")
   .option("--skip-install", "skip package installation", false)
-  .option("--pkg <pkg>", "custom package URL for CLI (e.g., grab)")
+  .option(
+    "--pkg <pkg>",
+    "package to install (npm name or file: path; GRAB_PKG env when omitted)",
+  )
   .option("-c, --cwd <cwd>", "working directory (defaults to current directory)", process.cwd())
   .action(async (opts) => {
     console.log(`${pc.magenta("✿")} ${pc.bold("React Grab")} ${pc.gray(VERSION)}`);
@@ -421,7 +425,9 @@ export const init = new Command()
           if (newProjectInfo.framework === "unknown") {
             newFrameworkSpinner.fail("Could not detect a supported framework in this project.");
             logger.break();
-            logger.log("React Grab supports Next.js, Vite, TanStack Start, and Webpack projects.");
+            logger.log(
+              "React Grab supports Next.js, Vite, TanStack Start, Webpack, and plain HTML projects.",
+            );
             logger.log(`Visit ${highlighter.info(DOCS_URL)} for manual setup.`);
             logger.break();
             process.exit(1);
@@ -432,7 +438,9 @@ export const init = new Command()
         } else {
           frameworkSpinner.fail("Could not detect a supported framework.");
           logger.break();
-          logger.log("React Grab supports Next.js, Vite, TanStack Start, and Webpack projects.");
+          logger.log(
+            "React Grab supports Next.js, Vite, TanStack Start, Webpack, and plain HTML projects.",
+          );
           logger.log(`Visit ${highlighter.info(DOCS_URL)} for manual setup.`);
           logger.break();
           process.exit(1);
@@ -536,7 +544,7 @@ export const init = new Command()
 
       if (!opts.skipInstall && shouldInstallReactGrab) {
         await installPackagesWithFeedback(
-          getPackagesToInstall(shouldInstallReactGrab),
+          getPackagesToInstall(shouldInstallReactGrab, opts.pkg),
           finalPackageManager,
           projectInfo.projectRoot,
         );

@@ -6,6 +6,7 @@ import {
   detectProject,
   detectReactGrab,
   detectUnsupportedFramework,
+  resolveFramework,
 } from "../src/utils/detect.js";
 
 vi.mock("node:fs", () => ({
@@ -470,5 +471,62 @@ describe("detectProject", () => {
     const project = await detectProject("/repo/apps/web");
 
     expect(project.framework).toBe("vite");
+  });
+
+  it("should detect plain HTML when index.html exists without React or a bundled entry", async () => {
+    mockExistsSync.mockImplementation((path) => {
+      const pathString = String(path);
+      return (
+        pathString === "/site/package.json" ||
+        pathString === "/site/index.html" ||
+        pathString.endsWith("node_modules/react-grab/package.json")
+      );
+    });
+    mockReadFileSync.mockImplementation((path) => {
+      const pathString = String(path);
+      if (pathString === "/site/package.json") {
+        return JSON.stringify({ devDependencies: { vite: "5.0.0" } });
+      }
+      return "{}";
+    });
+
+    const project = await detectProject("/site");
+
+    expect(project.framework).toBe("html");
+  });
+});
+
+describe("resolveFramework", () => {
+  it("should return html for static sites with index.html and no React entry", () => {
+    mockExistsSync.mockImplementation((path) => {
+      const pathString = String(path);
+      return pathString === "/site/package.json" || pathString === "/site/index.html";
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ devDependencies: {} }));
+
+    expect(resolveFramework("/site")).toBe("html");
+  });
+
+  it("should keep vite when a bundled entry exists even without React", () => {
+    mockExistsSync.mockImplementation((path) => {
+      const pathString = String(path);
+      return (
+        pathString === "/site/package.json" ||
+        pathString === "/site/index.html" ||
+        pathString === "/site/src/main.js"
+      );
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ devDependencies: { vite: "5.0.0" } }));
+
+    expect(resolveFramework("/site")).toBe("vite");
+  });
+
+  it("should not override React projects", () => {
+    mockExistsSync.mockImplementation((path) => String(path).endsWith("package.json"));
+    mockReadFileSync.mockReturnValue(
+      JSON.stringify({ dependencies: { react: "19.0.0", vite: "5.0.0" } }),
+    );
+
+    expect(resolveFramework("/site")).toBe("vite");
   });
 });

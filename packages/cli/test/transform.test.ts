@@ -373,6 +373,59 @@ describe("previewTransform - Unknown framework", () => {
   });
 });
 
+describe("previewTransform - Plain HTML", () => {
+  const indexContent = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Static site</title>
+  </head>
+  <body>
+    <h1>Hello</h1>
+  </body>
+</html>`;
+
+  it("should add a CDN script for static HTML projects", () => {
+    mockExistsSync.mockImplementation((path) => String(path).endsWith("index.html"));
+    mockReadFileSync.mockReturnValue(indexContent);
+
+    const result = previewTransform("/test", "html", "unknown", false);
+
+    expect(result.success).toBe(true);
+    expect(result.filePath).toContain("index.html");
+    expect(result.newContent).toContain("index.global.js");
+    expect(result.newContent).toContain("react-grab");
+  });
+
+  it("should add a Vite module script when vite is configured", () => {
+    mockExistsSync.mockImplementation((path) => {
+      const pathString = String(path);
+      return pathString.endsWith("index.html") || pathString.endsWith("package.json");
+    });
+    mockReadFileSync.mockImplementation((path) => {
+      if (String(path).endsWith("package.json")) {
+        return JSON.stringify({ devDependencies: { vite: "5.0.0" } });
+      }
+      return indexContent;
+    });
+
+    const result = previewTransform("/test", "html", "unknown", false);
+
+    expect(result.success).toBe(true);
+    expect(result.newContent).toContain('import("react-grab")');
+    expect(result.newContent).toContain("import.meta.env.DEV");
+  });
+
+  it("should fail when index.html is missing", () => {
+    mockExistsSync.mockReturnValue(false);
+
+    const result = previewTransform("/test", "html", "unknown", false);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("index.html");
+  });
+});
+
 describe("applyTransform", () => {
   it("should write file when result has newContent and file is writable", () => {
     mockAccessSync.mockImplementation(() => undefined);

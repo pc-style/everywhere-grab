@@ -21,3 +21,14 @@ export const TANSTACK_EFFECT = `useEffect(() => {
   }, []);`;
 
 export const SCRIPT_IMPORT = 'import Script from "next/script";';
+
+export const HTML_VITE_SCRIPT = `<script type="module">
+  if (import.meta.env.DEV) {
+    import("react-grab");
+  }
+</script>`;
+
+export const HTML_CDN_SCRIPT = `<script
+  src="//unpkg.com/react-grab/dist/index.global.js"
+  crossorigin="anonymous"
+></script>`;

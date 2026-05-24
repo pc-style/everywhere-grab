@@ -4,7 +4,7 @@ import { detect } from "package-manager-detector/detect";
 import ignore from "ignore";
 
 export type PackageManager = "npm" | "yarn" | "pnpm" | "bun";
-export type Framework = "next" | "vite" | "tanstack" | "webpack" | "unknown";
+export type Framework = "next" | "vite" | "tanstack" | "webpack" | "html" | "unknown";
 export type NextRouterType = "app" | "pages" | "unknown";
 export type UnsupportedFramework = "remix" | "astro" | "sveltekit" | "gatsby" | null;
 
@@ -220,14 +220,51 @@ const expandWorkspacePattern = (projectRoot: string, pattern: string): string[] 
   return results;
 };
 
-const hasReactDependency = (projectPath: string): boolean => {
+export const hasReactDependency = (projectPath: string): boolean => {
   const dependencies = readMergedDependencies(projectPath);
   if (!dependencies) return false;
   return Boolean(dependencies["react"] || dependencies["react-dom"]);
 };
 
+const ENTRY_FILE_NAMES = [
+  "src/index.tsx",
+  "src/index.jsx",
+  "src/index.ts",
+  "src/index.js",
+  "src/main.tsx",
+  "src/main.jsx",
+  "src/main.ts",
+  "src/main.js",
+] as const;
+
+const findIndexHtmlPath = (projectRoot: string): string | null => {
+  const possiblePaths = [join(projectRoot, "index.html"), join(projectRoot, "public", "index.html")];
+  for (const filePath of possiblePaths) {
+    if (existsSync(filePath)) return filePath;
+  }
+  return null;
+};
+
+const hasBundledEntryFile = (projectRoot: string): boolean =>
+  ENTRY_FILE_NAMES.some((entryRelativePath) =>
+    existsSync(join(projectRoot, entryRelativePath)),
+  );
+
+export const resolveFramework = (projectRoot: string): Framework => {
+  const baseFramework = detectFramework(projectRoot);
+  if (hasReactDependency(projectRoot)) return baseFramework;
+
+  const indexHtmlPath = findIndexHtmlPath(projectRoot);
+  if (!indexHtmlPath) return baseFramework;
+
+  if (!hasBundledEntryFile(projectRoot)) return "html";
+  if (baseFramework === "unknown") return "html";
+
+  return baseFramework;
+};
+
 const buildReactProject = (projectPath: string): WorkspaceProject | null => {
-  const framework = detectFramework(projectPath);
+  const framework = resolveFramework(projectPath);
   if (!hasReactDependency(projectPath) && framework === "unknown") return null;
 
   let name = basename(projectPath);
@@ -413,9 +450,13 @@ const detectReactGrabVersion = (projectRoot: string): string | null => {
 };
 
 export const detectProject = async (projectRoot: string = process.cwd()): Promise<ProjectInfo> => {
-  const localFramework = detectFramework(projectRoot);
+  const localFramework = resolveFramework(projectRoot);
+  const monorepoFramework =
+    localFramework === "unknown" ? detectFrameworkFromMonorepoRoot(projectRoot) : "unknown";
   const framework =
-    localFramework === "unknown" ? detectFrameworkFromMonorepoRoot(projectRoot) : localFramework;
+    localFramework === "unknown" && monorepoFramework !== "unknown"
+      ? monorepoFramework
+      : localFramework;
   const packageManager = await detectPackageManager(projectRoot);
 
   return {

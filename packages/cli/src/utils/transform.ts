@@ -1,7 +1,10 @@
 import { accessSync, constants, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Framework, NextRouterType } from "./detect.js";
+import { detectFramework } from "./detect.js";
 import {
+  HTML_CDN_SCRIPT,
+  HTML_VITE_SCRIPT,
   NEXT_APP_ROUTER_SCRIPT,
   SCRIPT_IMPORT,
   TANSTACK_EFFECT,
@@ -395,6 +398,71 @@ const transformWebpack = (
   };
 };
 
+const usesViteForHtml = (projectRoot: string): boolean => {
+  const framework = detectFramework(projectRoot);
+  if (framework === "vite") return true;
+  return hasConfigFile(projectRoot, "vite.config");
+};
+
+const hasConfigFile = (projectRoot: string, configBaseName: string): boolean => {
+  const extensions = ["ts", "mts", "cts", "js", "mjs", "cjs"] as const;
+  return extensions.some((extension) =>
+    existsSync(join(projectRoot, `${configBaseName}.${extension}`)),
+  );
+};
+
+const transformHtml = (
+  projectRoot: string,
+  reactGrabAlreadyConfigured: boolean,
+  force: boolean = false,
+): TransformResult => {
+  const indexPath = findIndexHtml(projectRoot);
+
+  if (!indexPath) {
+    return {
+      success: false,
+      filePath: "",
+      message: "Could not find index.html in the project root or public/ directory",
+    };
+  }
+
+  if (!force) {
+    const existingResult = checkExistingInstallation(indexPath, reactGrabAlreadyConfigured);
+    if (existingResult) return existingResult;
+  }
+
+  const originalContent = readFileSync(indexPath, "utf-8");
+  const grabSnippet = usesViteForHtml(projectRoot) ? HTML_VITE_SCRIPT : HTML_CDN_SCRIPT;
+  let newContent = originalContent;
+
+  const headMatch = newContent.match(/<head[^>]*>/i);
+  if (headMatch) {
+    newContent = newContent.replace(headMatch[0], `${headMatch[0]}\n    ${grabSnippet}`);
+  } else {
+    const htmlMatch = newContent.match(/<html[^>]*>/i);
+    if (htmlMatch) {
+      newContent = newContent.replace(
+        htmlMatch[0],
+        `${htmlMatch[0]}\n  <head>\n    ${grabSnippet}\n  </head>`,
+      );
+    } else {
+      return {
+        success: false,
+        filePath: indexPath,
+        message: "Could not find <head> or <html> in index.html",
+      };
+    }
+  }
+
+  return {
+    success: true,
+    filePath: indexPath,
+    message: "Add React Grab",
+    originalContent,
+    newContent,
+  };
+};
+
 const transformTanStack = (
   projectRoot: string,
   reactGrabAlreadyConfigured: boolean,
@@ -506,6 +574,9 @@ export const previewTransform = (
 
     case "webpack":
       return transformWebpack(projectRoot, reactGrabAlreadyConfigured, force);
+
+    case "html":
+      return transformHtml(projectRoot, reactGrabAlreadyConfigured, force);
 
     default:
       return {
@@ -625,6 +696,8 @@ const findReactGrabFile = (
       return findTanStackRootFile(projectRoot);
     case "webpack":
       return findEntryFile(projectRoot);
+    case "html":
+      return findIndexHtml(projectRoot);
     default:
       return null;
   }
@@ -660,6 +733,88 @@ const addOptionsToNextScript = (
     newScriptTag = scriptTag.replace(existingDataOptionsMatch[0], dataOptionsAttr);
   } else {
     newScriptTag = `${scriptOpening}\n            ${dataOptionsAttr}\n          ${scriptClosing}`;
+  }
+
+  const newContent = originalContent.replace(scriptTag, newScriptTag);
+
+  return {
+    success: true,
+    filePath,
+    message: "Update React Grab options",
+    originalContent,
+    newContent,
+  };
+};
+
+const addOptionsToHtmlViteScript = (
+  originalContent: string,
+  options: ReactGrabOptions,
+  filePath: string,
+): TransformResult => {
+  const reactGrabImportMatch = originalContent.match(
+    /if\s*\(\s*import\.meta\.env\.DEV\s*\)\s*\{[\s\S]*?import\s*\(\s*["']react-grab(?:\/core)?["']\s*\)(?:\.then\s*\(\s*\([^)]*\)\s*=>\s*[^)]*\.init\s*\([^)]*\)\s*\))?[\s\S]*?\}/,
+  );
+
+  if (!reactGrabImportMatch) {
+    return {
+      success: false,
+      filePath,
+      message: "Could not find React Grab script in index.html",
+    };
+  }
+
+  const optionsJson = formatOptionsAsJson(options);
+  const newBlock = `if (import.meta.env.DEV) {
+    const { init } = await import("react-grab/core");
+    init(${optionsJson});
+  }`;
+
+  const newContent = originalContent.replace(reactGrabImportMatch[0], newBlock);
+
+  return {
+    success: true,
+    filePath,
+    message: "Update React Grab options",
+    originalContent,
+    newContent,
+  };
+};
+
+const addOptionsToHtmlCdnScript = (
+  originalContent: string,
+  options: ReactGrabOptions,
+  filePath: string,
+): TransformResult => {
+  const reactGrabScriptMatch = originalContent.match(
+    /<script[\s\S]*?react-grab[\s\S]*?<\/script>/i,
+  );
+
+  if (!reactGrabScriptMatch) {
+    return {
+      success: false,
+      filePath,
+      message: "Could not find React Grab script tag in index.html",
+    };
+  }
+
+  const scriptTag = reactGrabScriptMatch[0];
+  const dataOptionsAttr = `data-options='${formatOptionsAsJson(options)}'`;
+  const scriptOpeningMatch = scriptTag.match(/^<script[^>]*>/i);
+
+  if (!scriptOpeningMatch) {
+    return {
+      success: false,
+      filePath,
+      message: "Could not parse React Grab script tag",
+    };
+  }
+
+  const existingDataOptionsMatch = scriptTag.match(/data-options=['"][^'"]*['"]/);
+  let newScriptTag: string;
+  if (existingDataOptionsMatch) {
+    newScriptTag = scriptTag.replace(existingDataOptionsMatch[0], dataOptionsAttr);
+  } else {
+    newScriptTag = scriptTag.replace(scriptOpeningMatch[0], `${scriptOpeningMatch[0]}\n  ${dataOptionsAttr}`);
   }
 
   const newContent = originalContent.replace(scriptTag, newScriptTag);
@@ -770,6 +925,11 @@ export const previewOptionsTransform = (
       return addOptionsToTanStackImport(originalContent, options, filePath);
     case "webpack":
       return addOptionsToDynamicImport(originalContent, options, filePath);
+    case "html":
+      if (usesViteForHtml(projectRoot)) {
+        return addOptionsToHtmlViteScript(originalContent, options, filePath);
+      }
+      return addOptionsToHtmlCdnScript(originalContent, options, filePath);
     default:
       return {
         success: false,
