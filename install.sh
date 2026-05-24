@@ -4,6 +4,7 @@ set -euo pipefail
 GRAB_INSTALL_REPO="${GRAB_INSTALL_REPO:-https://github.com/pc-style/everywhere-grab.git}"
 GRAB_INSTALL_BRANCH="${GRAB_INSTALL_BRANCH:-main}"
 GRAB_FORK_DIR="${GRAB_FORK_DIR:-${HOME}/.everywhere-grab}"
+GRAB_SHELL_MARKER="# react-grab fork (everywhere-grab install.sh)"
 MIN_NODE_MAJOR=22
 
 require_command() {
@@ -48,6 +49,108 @@ resolve_repo_root() {
     fi
   fi
   echo ""
+}
+
+is_interactive_install() {
+  [[ -t 0 ]] && [[ -z "${GRAB_INSTALL_YES:-}" ]] && [[ -z "${GRAB_INSTALL_NO_SHELL_RC:-}" ]] && [[ -z "${CI:-}" ]]
+}
+
+prompt_yes_no() {
+  local prompt_message="$1"
+  local reply=""
+  read -r -p "${prompt_message} [y/N] " reply </dev/tty || return 1
+  case "${reply}" in
+    [yY] | [yY][eE][sS]) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+detect_shell_rc_file() {
+  local shell_path="${SHELL:-}"
+  local shell_name="${shell_path##*/}"
+
+  case "$shell_name" in
+    zsh)
+      echo "${ZDOTDIR:-${HOME}}/.zshrc"
+      ;;
+    bash)
+      if [[ -f "${HOME}/.bashrc" ]]; then
+        echo "${HOME}/.bashrc"
+      elif [[ -f "${HOME}/.bash_profile" ]]; then
+        echo "${HOME}/.bash_profile"
+      else
+        echo "${HOME}/.bashrc"
+      fi
+      ;;
+    fish)
+      echo "${HOME}/.config/fish/config.fish"
+      ;;
+    *)
+      if [[ -f "${HOME}/.profile" ]]; then
+        echo "${HOME}/.profile"
+      else
+        echo "${HOME}/.bashrc"
+      fi
+      ;;
+  esac
+}
+
+shell_rc_has_grab_fork_block() {
+  local rc_file="$1"
+  [[ -f "$rc_file" ]] && grep -Fq "$GRAB_SHELL_MARKER" "$rc_file"
+}
+
+append_grab_fork_to_shell_rc() {
+  local rc_file="$1"
+  local env_file="$2"
+
+  if shell_rc_has_grab_fork_block "$rc_file"; then
+    echo "→ Shell profile already loads the grab fork (${rc_file})."
+    return
+  fi
+
+  local rc_directory
+  rc_directory="$(dirname "$rc_file")"
+  mkdir -p "$rc_directory"
+
+  {
+    echo ""
+    echo "$GRAB_SHELL_MARKER"
+    echo "[ -f \"${env_file}\" ] && . \"${env_file}\""
+  } >>"$rc_file"
+
+  echo "→ Added grab fork to ${rc_file}"
+}
+
+offer_shell_profile_setup() {
+  local env_file="$1"
+  local rc_file
+  rc_file="$(detect_shell_rc_file)"
+
+  if [[ "${GRAB_INSTALL_YES:-}" == "1" ]]; then
+    append_grab_fork_to_shell_rc "$rc_file" "$env_file"
+    return
+  fi
+
+  if [[ "${GRAB_INSTALL_NO_SHELL_RC:-}" == "1" ]]; then
+    return
+  fi
+
+  if ! is_interactive_install; then
+    echo ""
+    echo "Tip: add this to ${rc_file} to load GRAB_PKG in new shells:"
+    echo "  [ -f \"${env_file}\" ] && . \"${env_file}\""
+    return
+  fi
+
+  echo ""
+  if prompt_yes_no "Add grab fork to ${rc_file} (so you don't need to source it each time)?"; then
+    append_grab_fork_to_shell_rc "$rc_file" "$env_file"
+    echo "  Open a new terminal or run: source \"${rc_file}\""
+  else
+    echo "Skipped shell profile. Run once per session:"
+    echo "  source \"${env_file}\""
+  fi
 }
 
 ensure_fork_clone() {
@@ -95,9 +198,9 @@ EOF
 
   echo ""
   echo "Fork installed locally (nothing published to npm)."
-  echo ""
-  echo "Add to your shell profile or run once per session:"
-  echo "  source \"${env_file}\""
+
+  offer_shell_profile_setup "$env_file"
+
   echo ""
   echo "Then in any project:"
   echo "  grab init"

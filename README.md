@@ -32,7 +32,7 @@ source ~/.everywhere-grab/.grab-fork.env
 grab init
 ```
 
-Or clone and run `./install.sh` from the repo root. Override clone location with `GRAB_FORK_DIR`, branch with `GRAB_INSTALL_BRANCH`, or repo URL with `GRAB_INSTALL_REPO`.
+Or clone and run `./install.sh` from the repo root. The script asks whether to append `GRAB_PKG` to your `.zshrc` / `.bashrc` (set `GRAB_INSTALL_YES=1` to accept without prompting). Override clone location with `GRAB_FORK_DIR`, branch with `GRAB_INSTALL_BRANCH`, or repo URL with `GRAB_INSTALL_REPO`.
 
 ## How It Works
 
