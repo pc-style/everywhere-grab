@@ -17,6 +17,23 @@ Run this at your project root:
 npx grab@latest init
 ```
 
+## Install This Fork (no npm publish)
+
+One-liner — clones to `~/.everywhere-grab`, builds, and links the `grab` CLI globally:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pc-style/everywhere-grab/main/install.sh | bash
+```
+
+Then wire projects to your local build:
+
+```bash
+source ~/.everywhere-grab/.grab-fork.env
+grab init
+```
+
+Or clone and run `./install.sh` from the repo root. Override clone location with `GRAB_FORK_DIR`, branch with `GRAB_INSTALL_BRANCH`, or repo URL with `GRAB_INSTALL_REPO`.
+
 ## How It Works
 
 React Grab turns a browser selection into source context your agent can use:

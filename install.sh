@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$ROOT"
-
+GRAB_INSTALL_REPO="${GRAB_INSTALL_REPO:-https://github.com/pc-style/everywhere-grab.git}"
+GRAB_INSTALL_BRANCH="${GRAB_INSTALL_BRANCH:-main}"
+GRAB_FORK_DIR="${GRAB_FORK_DIR:-${HOME}/.everywhere-grab}"
 MIN_NODE_MAJOR=22
 
 require_command() {
@@ -37,42 +37,82 @@ ensure_pnpm() {
   exit 1
 }
 
-require_node_version
-ensure_pnpm
+resolve_repo_root() {
+  local script_path="${BASH_SOURCE[0]:-}"
+  if [[ -n "$script_path" && -f "$script_path" ]]; then
+    local candidate_root
+    candidate_root="$(cd "$(dirname "$script_path")" && pwd)"
+    if [[ -f "${candidate_root}/pnpm-workspace.yaml" ]]; then
+      echo "$candidate_root"
+      return
+    fi
+  fi
+  echo ""
+}
 
-echo "→ Installing dependencies..."
-pnpm install
+ensure_fork_clone() {
+  if [[ -d "${GRAB_FORK_DIR}/.git" ]]; then
+    echo "→ Updating fork at ${GRAB_FORK_DIR}..."
+    git -C "$GRAB_FORK_DIR" fetch --depth 1 origin "$GRAB_INSTALL_BRANCH"
+    git -C "$GRAB_FORK_DIR" checkout "$GRAB_INSTALL_BRANCH"
+    git -C "$GRAB_FORK_DIR" reset --hard "origin/${GRAB_INSTALL_BRANCH}"
+    return
+  fi
 
-echo "→ Building packages..."
-pnpm build
+  require_command git
+  echo "→ Cloning fork to ${GRAB_FORK_DIR}..."
+  git clone --depth 1 --branch "$GRAB_INSTALL_BRANCH" "$GRAB_INSTALL_REPO" "$GRAB_FORK_DIR"
+}
 
-REACT_GRAB_PKG="${ROOT}/packages/react-grab"
-GRAB_CLI_PKG="${ROOT}/packages/grab"
-PKG_SPEC="file:${REACT_GRAB_PKG}"
+run_install() {
+  local root="$1"
+  cd "$root"
 
-echo "→ Linking grab CLI globally..."
-(
-  cd "$GRAB_CLI_PKG"
-  pnpm link --global
-)
+  require_node_version
+  ensure_pnpm
 
-ENV_FILE="${ROOT}/.grab-fork.env"
-cat >"$ENV_FILE" <<EOF
-# Source in your shell: source "${ENV_FILE}"
-export GRAB_PKG="${PKG_SPEC}"
+  echo "→ Installing dependencies..."
+  pnpm install
+
+  echo "→ Building packages..."
+  pnpm build
+
+  local react_grab_pkg="${root}/packages/react-grab"
+  local grab_cli_pkg="${root}/packages/grab"
+  local pkg_spec="file:${react_grab_pkg}"
+
+  echo "→ Linking grab CLI globally..."
+  (
+    cd "$grab_cli_pkg"
+    pnpm link --global
+  )
+
+  local env_file="${root}/.grab-fork.env"
+  cat >"$env_file" <<EOF
+# Source in your shell: source "${env_file}"
+export GRAB_PKG="${pkg_spec}"
 EOF
 
-echo ""
-echo "Fork installed locally (nothing published to npm)."
-echo ""
-echo "Add to your shell profile or run once per session:"
-echo "  source \"${ENV_FILE}\""
-echo ""
-echo "Then in any project:"
-echo "  grab init"
-echo ""
-echo "Or pass the local package explicitly:"
-echo "  grab init --pkg \"${PKG_SPEC}\""
-echo ""
-echo "Manual install in a project (no grab init):"
-echo "  pnpm add -D \"${PKG_SPEC}\""
+  echo ""
+  echo "Fork installed locally (nothing published to npm)."
+  echo ""
+  echo "Add to your shell profile or run once per session:"
+  echo "  source \"${env_file}\""
+  echo ""
+  echo "Then in any project:"
+  echo "  grab init"
+  echo ""
+  echo "Or pass the local package explicitly:"
+  echo "  grab init --pkg \"${pkg_spec}\""
+  echo ""
+  echo "Manual install in a project (no grab init):"
+  echo "  pnpm add -D \"${pkg_spec}\""
+}
+
+ROOT="$(resolve_repo_root)"
+if [[ -z "$ROOT" ]]; then
+  ensure_fork_clone
+  ROOT="$GRAB_FORK_DIR"
+fi
+
+run_install "$ROOT"
