@@ -53,6 +53,18 @@ export const installPackages = async (
   );
 };
 
-export const getPackagesToInstall = (includeReactGrab: boolean = true): string[] => {
-  return includeReactGrab ? ["react-grab"] : [];
+export const resolveGrabPackageSpec = (packageSpec?: string): string => {
+  const trimmedSpec = packageSpec?.trim();
+  if (trimmedSpec) return trimmedSpec;
+  const environmentSpec = process.env.GRAB_PKG?.trim();
+  if (environmentSpec) return environmentSpec;
+  return "react-grab";
+};
+
+export const getPackagesToInstall = (
+  includeReactGrab: boolean = true,
+  packageSpec?: string,
+): string[] => {
+  if (!includeReactGrab) return [];
+  return [resolveGrabPackageSpec(packageSpec)];
 };

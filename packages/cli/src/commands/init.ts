@@ -114,7 +114,10 @@ export const init = new Command()
   .option("-f, --force", "force overwrite existing config", false)
   .option("-k, --key <key>", "activation key (e.g., Meta+K, Ctrl+Shift+G, Space)")
   .option("--skip-install", "skip package installation", false)
-  .option("--pkg <pkg>", "custom package URL for CLI (e.g., grab)")
+  .option(
+    "--pkg <pkg>",
+    "package to install (npm name or file: path; GRAB_PKG env when omitted)",
+  )
   .option("-c, --cwd <cwd>", "working directory (defaults to current directory)", process.cwd())
   .action(async (opts) => {
     console.log(`${pc.magenta("✿")} ${pc.bold("React Grab")} ${pc.gray(VERSION)}`);
@@ -541,7 +544,7 @@ export const init = new Command()
 
       if (!opts.skipInstall && shouldInstallReactGrab) {
         await installPackagesWithFeedback(
-          getPackagesToInstall(shouldInstallReactGrab),
+          getPackagesToInstall(shouldInstallReactGrab, opts.pkg),
           finalPackageManager,
           projectInfo.projectRoot,
         );
