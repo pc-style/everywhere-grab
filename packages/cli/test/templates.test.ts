@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
-import { NEXT_APP_ROUTER_SCRIPT, VITE_IMPORT, WEBPACK_IMPORT } from "../src/utils/templates.js";
+import {
+  HTML_CDN_SCRIPT,
+  HTML_VITE_SCRIPT,
+  NEXT_APP_ROUTER_SCRIPT,
+  VITE_IMPORT,
+  WEBPACK_IMPORT,
+} from "../src/utils/templates.js";
 
 describe("Next.js App Router templates", () => {
   it("should generate basic script without agent", () => {
@@ -22,5 +28,17 @@ describe("Webpack templates", () => {
     expect(WEBPACK_IMPORT).toContain('import("react-grab")');
     expect(WEBPACK_IMPORT).toContain("process.env.NODE_ENV");
     expect(WEBPACK_IMPORT).toContain("development");
+  });
+});
+
+describe("Plain HTML templates", () => {
+  it("should generate a Vite-friendly module script", () => {
+    expect(HTML_VITE_SCRIPT).toContain('import("react-grab")');
+    expect(HTML_VITE_SCRIPT).toContain("import.meta.env.DEV");
+  });
+
+  it("should generate a CDN script for static HTML", () => {
+    expect(HTML_CDN_SCRIPT).toContain("index.global.js");
+    expect(HTML_CDN_SCRIPT).toContain("react-grab");
   });
 });
