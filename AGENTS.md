@@ -152,3 +152,21 @@ See root `package.json` scripts and `CONTRIBUTING.md` for the full list. Quick r
 - **Format**: `pnpm format` - oxfmt
 - **CLI dev**: `npm_command=exec node packages/cli/dist/cli.js`
 - **Test app**: `pnpm --filter @react-grab/e2e-app dev` (port 5175, lives in `apps/e2e-app`)
+
+## Cursor Cloud specific instructions
+
+### Environment assumptions
+
+The update script runs `pnpm install`, installs Playwright Chromium, and runs `pnpm build`. After VM startup, all packages are already built and ready for testing.
+
+### Running services for manual testing
+
+- **e2e-app** (`pnpm --filter @react-grab/e2e-app dev`, port 5175): Playwright test target. React Grab is NOT auto-initialized — tests call `window.initReactGrab()` programmatically.
+- **Openstory** (`pnpm --filter @react-grab/openstory dev`, port 6006): Component gallery with Playground stories that run `init()` automatically for manual hover/grab verification.
+
+### Gotchas
+
+- The `pnpm.onlyBuiltDependencies` allowlist in root `package.json` is critical. Without it, native addons (`esbuild`, `@parcel/watcher`, `sharp`, etc.) silently fail to build and downstream packages break.
+- Some build scripts are intentionally NOT in `onlyBuiltDependencies` (e.g. `msw`, `node-pty`, `tree-sitter-bash`). The "Ignored build scripts" warning from `pnpm install` is expected and safe to ignore.
+- Always rebuild (`pnpm build`) after source changes before running `pnpm test` or `pnpm lint`.
+- The `vite` and `vitest` packages are overridden to `@voidzero-dev/vite-plus-core` and `@voidzero-dev/vite-plus-test` respectively via pnpm overrides.
