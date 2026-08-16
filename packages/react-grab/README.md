@@ -1,21 +1,62 @@
-# <img src="https://github.com/aidenybai/react-grab/blob/main/.github/public/logo.png?raw=true" width="60" align="center" /> React Grab
+# <img src="https://github.com/aidenybai/react-grab/blob/main/.github/public/logo.png?raw=true" width="60" align="center" /> Everywhere Grab
 
-[![version](https://img.shields.io/npm/v/react-grab?style=flat&colorA=000000&colorB=000000)](https://npmjs.com/package/react-grab)
-[![downloads](https://img.shields.io/npm/dt/react-grab.svg?style=flat&colorA=000000&colorB=000000)](https://npmjs.com/package/react-grab)
+Coding agents often receive a screenshot or description without the source location needed to make a precise edit. This fork of [React Grab](https://github.com/aidenybai/react-grab) lets you select a UI element in a development site and copy its markup, source location, nearby code, and component stack for an agent. It adds plain-HTML project setup and a local-source installation path to the upstream project.
 
-Copy any UI element for your agent.
+## Demo
 
-React Grab points agents to the actual source behind each selection, so edits are [**2× faster**](https://benchmarks.react-grab.com/) and more accurate.
+[Try the upstream React Grab demo →](https://react-grab.com)
 
-### [Try out a demo! →](https://react-grab.com)
+There is no separate hosted demo or deployment for this fork.
 
-## Quick Start
+## Install this fork
 
-Run this at your project root:
+Requires Git, Node.js 22+, and pnpm. The reviewable path is:
 
 ```bash
-npx grab@latest init
+git clone https://github.com/pc-style/everywhere-grab.git
+cd everywhere-grab
+./install.sh
+source .grab-fork.env
+grab init
 ```
+
+The installer builds from source and globally links the `grab` CLI; it does not install a separately published `everywhere-grab` npm package. By default a remote install clones into `~/.everywhere-grab`. The script can also append a line that sources `.grab-fork.env` to your shell profile, but asks first in an interactive shell.
+
+After reviewing [`install.sh`](https://github.com/pc-style/everywhere-grab/blob/main/install.sh), the equivalent unattended download is:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pc-style/everywhere-grab/main/install.sh | bash
+```
+
+Set `GRAB_INSTALL_NO_SHELL_RC=1` to prevent shell-profile changes. Set `GRAB_INSTALL_YES=1` to accept them without prompting. Override the clone location with `GRAB_FORK_DIR`, branch with `GRAB_INSTALL_BRANCH`, or repository URL with `GRAB_INSTALL_REPO`.
+
+## Trust and privacy
+
+- `install.sh` fetches source and npm dependencies, builds the workspace, globally links the CLI, and writes `.grab-fork.env`. Review it before running it, especially through `curl | bash`.
+- Grabbed context can contain DOM markup, local source paths, source excerpts, and component names. Review it before pasting it into any external coding agent.
+- This fork has not undergone an independent security or privacy audit. No security, privacy, or deployment guarantees are made here.
+
+## Project status
+
+This is an experimental downstream fork, not the canonical React Grab distribution. As of 2026-08-16, it is based on upstream commit [`e4e8bc4`](https://github.com/aidenybai/react-grab/commit/e4e8bc40f1b967dbd607af3fcfca0191ca89b872), has 8 fork-only commits, and is 161 upstream commits behind. Use [upstream React Grab](https://github.com/aidenybai/react-grab) for the current canonical release. No maintenance cadence or compatibility with current upstream is promised.
+
+## Provenance and fork delta
+
+The original project is [Aiden Bai's `aidenybai/react-grab`](https://github.com/aidenybai/react-grab). Its history, author metadata, package attribution, copyright notice, and MIT license are preserved.
+
+Compared with the common ancestor above, this fork:
+
+- adds plain-HTML detection and `index.html` transforms to `grab init`, with tests;
+- allows `--pkg` / `GRAB_PKG` to point the CLI at a local package build;
+- adds `install.sh` for cloning, building, globally linking, and optionally configuring that local build;
+- adds a plain-HTML framework roadmap and Cursor Cloud notes; and
+- removes the upstream publish-any-commit workflow from the fork.
+
+See the [GitHub comparison](https://github.com/pc-style/everywhere-grab/compare/e4e8bc40f1b967dbd607af3fcfca0191ca89b872...main) for the concrete code delta.
+
+## License
+
+MIT. See [`LICENSE`](https://github.com/pc-style/everywhere-grab/blob/main/LICENSE), which retains the upstream copyright and license notice.
 
 ## How It Works
 
@@ -190,22 +231,8 @@ actions: [
 
 See [`packages/react-grab/src/types.ts`](https://github.com/aidenybai/react-grab/blob/main/packages/react-grab/src/types.ts) for the full `Plugin`, `PluginHooks`, and `PluginConfig` interfaces.
 
-## Resources & Contributing Back
+## Upstream resources and contributing
 
-Want to try it out? Check out [our demo](https://react-grab.com).
-
-Looking to contribute back? Check out the [Contributing Guide](https://github.com/aidenybai/react-grab/blob/main/CONTRIBUTING.md).
-
-Want to talk to the community? Hop in our [Discord](https://discord.com/invite/G7zxfUzkm7) and share your ideas and what you've built with React Grab.
-
-Find a bug? Head over to our [issue tracker](https://github.com/aidenybai/react-grab/issues) and we'll do our best to help. We love pull requests, too!
-
-We expect all contributors to abide by the terms of our [Code of Conduct](https://github.com/aidenybai/react-grab/blob/main/.github/CODE_OF_CONDUCT.md).
-
-[**Start contributing on GitHub**](https://github.com/aidenybai/react-grab/blob/main/CONTRIBUTING.md)
-
-### License
-
-React Grab is MIT-licensed open-source software.
+The [demo](https://react-grab.com), [Contributing Guide](https://github.com/aidenybai/react-grab/blob/main/CONTRIBUTING.md), [Discord](https://discord.com/invite/G7zxfUzkm7), [issue tracker](https://github.com/aidenybai/react-grab/issues), and [Code of Conduct](https://github.com/aidenybai/react-grab/blob/main/.github/CODE_OF_CONDUCT.md) are maintained by the upstream React Grab project. Report fork-specific installer or plain-HTML issues in this repository; send changes intended for the canonical project upstream.
 
 _Thank you to [Andrew Luetgers](https://github.com/andrewluetgers) for donating the `grab` npm package name._
